@@ -1,0 +1,7 @@
+python=2.7.18=h15b4118_1
+biopython=1.68
+numpy=1.11.0
+pandas=0.18.1
+pybrain=0.3.3
+regex=2016.9.22
+scipy=0.18.1

@@ -16,7 +16,7 @@ help()
    echo "Syntax: scriptTemplate [-h|c|e]"
    echo "options:"
    echo "h    Print this Help."
-   echo "d    Specify name of output directory, if not given then default dir name of dd-mm-yy_hour-min will be used"
+   echo "d    Specify name of output directory, if not given then default name of g4rna_output_dd-mm-yy_hour-min will be used"
    echo "e    Send emails from sbatch and ssub on job completion" 
 }
 
@@ -105,16 +105,18 @@ conda_path=$(find ~/ -type d -name miniconda3)"/bin/conda"
 printf "'%s'\n" "I'm using this path of conda: ${conda_path}" >> "${dir}"/G4RNA_wrapper_log.txt
 
 #Similarly find the location of screen.py in the users home directory
-screen_path=$(find ~/ -type f -name screen.py)
+screen_path=$(find ~/ -type f -wholename "*/g4rna_automated/g4rna_screener/screen.py")
 printf "'%s'\n" "I'm using this path for screen.py: ${screen_path}" >> "${dir}"/G4RNA_wrapper_log.txt
 
 #Also find location of python conversion script
-csv_converter_path=$(find ~/ -type f -name g4rna_convert_output.py) 
+csv_converter_path=$(find ~/ -type f -wholename "*/g4rna_automated/g4rna_convert_output.py") 
 printf "'%s'\n" "I'm using this path for g4rna_convert_output.py: ${csv_converter_path}" >> "${dir}"/G4RNA_wrapper_log.txt
 
 #### Run Screen.py for input files ####
 
 echo "Running G4RNA screener for fasta files"
+printf "'%s'\n" "Running G4RNA screener for fasta files" >> "${dir}"/G4RNA_wrapper_log.txt
+
 #Initiate the correct conda environment 
 eval "$($conda_path shell.bash hook)" #setup a temporary link to conda in current shell will be necassary depending on how setup conda
 conda activate g4rna 
@@ -178,7 +180,7 @@ while [ $screener_done_checkb -lt 4 ]; do
         if cmp -s "${dir}/tsv_files_now.txt" "${dir}/tsv_files_prev.txt"; then
             #add one to screener_done_checkb
             ((screener_done_checkb+=1))
-            printf "'%s'\n" "There have been no changes to the output files, consequtive times this condition has been met: $screener_done_checkb times" >> "${dir}"/G4RNA_wrapper_log.txt
+            printf "'%s'\n" "There have been no changes to the output files, consecutive times this condition has been met: $screener_done_checkb times" >> "${dir}"/G4RNA_wrapper_log.txt
             printf "'%s'\n" "I will wait approx. 20 seconds and check again" >> "${dir}"/G4RNA_wrapper_log.txt
 
             if [ $screener_done_checkb = 3 ]; then
@@ -201,6 +203,7 @@ done
 
 #Now that generation of all the tsv output files is complete move on to converting these file to csv format 
 echo "G4RNA screener has finished, now going to convert the tsv output files to a csv format"
+printf "'%s'\n" "G4RNA screener has finished, now going to convert the tsv output files to a csv format" >> "${dir}"/G4RNA_wrapper_log.txt
 #Deactivate conda environment
 conda deactivate 
 
@@ -219,7 +222,7 @@ convert_check_a=0
 while [ $convert_check_a == 0 ]; do
     #check if file exists
     if [ -f "${dir}/g4rna_convert_done.txt" ]; then
-        echo "File \"${dir}/g4rna_convert_done.txt\" exists" >> "${dir}"/G4RNA_wrapper_log.txt
+        echo "File \"${dir}/g4rna_convert_done.txt\" exists therefore g4rna_convert_output.py is done" >> "${dir}"/G4RNA_wrapper_log.txt
         module unload ssub
         module unload python
         convert_check_a=1

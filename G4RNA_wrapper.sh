@@ -212,7 +212,12 @@ module load python
 module load ssub
 
 #submit job using ssub 
-ssub --email python "$csv_converter_path" -files "${output_files[@]}"
+if [ "$email" != 0 ] ; then
+    ssub --email python "$csv_converter_path" -files "${output_files[@]}"    
+else 
+    ssub python "$csv_converter_path" -files "${output_files[@]}"
+fi
+
 
 #Wait for conversion to finish then unload python and ssub (necassary if you want to run the script in full again)
     #g4rna_convert_output.py, creates a file g4rna_convert_done.txt in ${dir} once it's finished with csv conversion

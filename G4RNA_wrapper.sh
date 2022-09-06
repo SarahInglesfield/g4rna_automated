@@ -72,7 +72,6 @@ done
 shift "$((OPTIND-1))" #remove the options that have been passed meaning that the remaining arguments should be our fasta files
 #Store the provided files as an array
 fasta_files=("$@")
-echo "${fasta_files[@]}"
 
 #Preliminary checks that the files provided exist, aren't empty and are fasta files
 for file in "${fasta_files[@]}"; do
@@ -124,7 +123,8 @@ conda activate g4rna
 #Run through the fasta files that have been provided
 for file in "${fasta_files[@]}" ; do
     #Extract the unique file names - essentially everything before the .fasta file extension
-    name=$(echo "$file" | cut -d "." -f 1 | cut -d "/" -f 2)
+    name=$(echo "$file" | cut -d "." -f 1 | rev | cut -d "/" -f 1 | rev)
+
     #append as required for subsequent filenames
     out_file=${name}"_screen_output.tsv"
 
@@ -133,7 +133,7 @@ for file in "${fasta_files[@]}" ; do
 
     #submit to sbatch depending on whether email option is included 
     if [ "$email" != 0 ] ; then
-        sbatch --mem=2G -c1 -o"./${dir}/${out_file}" -Jpython --mail-user="${email}" --mail-type=END,FAIL --wrap="python $screen_path ./$file"
+        sbatch --mem=2G -c1 -o"./${dir}/${out_file}" -Jpython --mail-user="${email}" --mail-type=END,FAIL --wrap="python $screen_path $file"
         
     else 
         sbatch --mem=2G -c1 -o"./${dir}/${out_file}" -Jpython --wrap="python $screen_path $file"

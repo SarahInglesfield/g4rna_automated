@@ -105,7 +105,7 @@ conda_path=$(find ~/ -type d -name miniconda3)"/bin/conda"
 printf "'%s'\n" "I'm using this path of conda: ${conda_path}" >> "${dir}"/G4RNA_wrapper_log.txt
 
 #Similarly find the location of screen.py in the users home directory
-screen_path=$(find ~/ -type f -wholename "*/g4rna_automated/g4rna_screener/screen.py")
+screen_path=$(find ~/ -type f -wholename "*/g4rna_screener/screen.py")
 printf "'%s'\n" "I'm using this path for screen.py: ${screen_path}" >> "${dir}"/G4RNA_wrapper_log.txt
 
 #Also find location of python conversion script

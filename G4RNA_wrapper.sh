@@ -13,7 +13,7 @@ help()
    echo "The csv files are output to a directory within the current working directory"
    echo "A general log file giving some details of the run will also be generated in this directory"
    echo
-   echo "Syntax: scriptTemplate [-h|c|e]"
+   echo "Syntax: /path/to/G4RNA_wrapper.sh [-h|d {dir_name}|e] fasta file(s)"
    echo "options:"
    echo "h    Print this Help."
    echo "d    Specify name of output directory, if not given then default name of g4rna_output_dd-mm-yy_hour-min will be used"

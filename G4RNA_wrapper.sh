@@ -111,137 +111,112 @@ printf "'%s'\n" "I'm using this path for screen.py: ${screen_path}" >> "${dir}"/
 csv_converter_path=$(find ~/ -type f -wholename "*/g4rna_automated/g4rna_convert_output.py") 
 printf "'%s'\n" "I'm using this path for g4rna_convert_output.py: ${csv_converter_path}" >> "${dir}"/G4RNA_wrapper_log.txt
 
+#Finally also find location of submit_screener script
+sub_screener_path=$(find ~/ -type f -wholename "*/g4rna_automated/submit_screener.sh") 
+printf "'%s'\n" "I'm using this path for submit_screener.sh: ${sub_screener_path}" >> "${dir}"/G4RNA_wrapper_log.txt
+
 #### Run Screen.py for input files ####
 
 echo "Running G4RNA screener for fasta files"
 printf "'%s'\n" "Running G4RNA screener for fasta files" >> "${dir}"/G4RNA_wrapper_log.txt
 
 #Initiate the correct conda environment 
-eval "$($conda_path shell.bash hook)" #setup a temporary link to conda in current shell will be necassary depending on how setup conda
+eval "$($conda_path shell.bash hook)" #setup a temporary link to conda in current shell
 conda activate g4rna 
 
-#Run through the fasta files that have been provided
+#Run through the fasta files that have been provided and submit them to screen.py via submit_screener.sh
+
 for file in "${fasta_files[@]}" ; do
     #Extract the unique file names - essentially everything before the .fasta file extension
     name=$(echo "$file" | cut -d "." -f 1 | rev | cut -d "/" -f 1 | rev)
 
     #append as required for subsequent filenames
-    out_file=${name}"_screen_output.tsv"
+    out_file=${name}"_screen_output"
 
-    #store each out_file to an array for later use
-    output_files+=("${dir}/$out_file")
+    #store each out_file to an array for later use (put the .tsv on the name here so will be recognised later)
+    output_files+=("${dir}/${out_file}.tsv")
 
-    #submit to sbatch depending on whether email option is included 
+    #submit to sbatch via the submit_screener.sh, with option to send email based on user input
     if [ "$email" != 0 ] ; then
-        sbatch --mem=2G -c1 -o"./${dir}/${out_file}" -Jpython --mail-user="${email}" --mail-type=END,FAIL --wrap="python $screen_path $file"
-        
-    else 
-        sbatch --mem=2G -c1 -o"./${dir}/${out_file}" -Jpython --wrap="python $screen_path $file"
+        sbatch --mem=2G -c1 -o"./${dir}/out_file_log.txt" -Jbash --mail-user="${email}" --mail-type=END,FAIL --wrap="bash $sub_screener_path $dir $out_file $screen_path $file"
+    else
+        sbatch --mem=2G -c1 -o"./${dir}/out_file_log.txt" -Jbash --wrap="bash $sub_screener_path $dir $out_file $screen_path $file"
     fi
 
+done
+
+# Now check that screen.py has finished for all of the input files before moving on
+screen_py_done=0
+
+while [ $screen_py_done == 0 ]; do
+    
+    #Look for the S2507I_screen_end.txt files that are generated at the end of submit_screener.sh
+    #If the number of end files matches the number of input fasta files then exit while loop. If not then sleep and try check again
+    dir_check=$(ls "$dir"/*S2507I_screen_end.txt 2>/dev/null|wc -l)
+
+    if [ ${#fasta_files[@]} = "$dir_check" ] ; then
+        printf "'%s'\n" "There are now the expected number (${#fasta_files[@]}) of S2507I_screen_end.txt flag files"
+        screen_py_done=1
+    else
+        echo "There are only ${dir_check} end flag files therefore screen.py is not done, sleeping for 30s before checking again"
+        sleep 30
+    fi  
 done
 
 #Force the script to wait until all sbatch jobs have compelted before moving on to next stage
-#don't want to deactivate conda environment if its still in use
-#Test before can move on = are the number of output tsv files the same as the number of input files
-#Are the sizes of the tsv files the same as the last time you checked 
 
-screener_done_checka=0
-screener_done_checkb=0
-touch "${dir}"/tsv_files_prev.txt
-touch "${dir}"/tsv_files_now.txt
-
-while [ $screener_done_checkb -lt 4 ]; do
-
-    while [ "$screener_done_checka" -lt 1 ]; do 
-        #check the number of tsv files present in the directory
-        #first check there are more than 3 files in the directory (2 touch files and log file)
-        dir_check=$(ls "$dir"/*|wc -l)
-
-        if [ "$dir_check" -gt 3 ]; then
-            no_output=$(ls "$dir"/*.tsv|wc -l)
-        else
-            sleep 5
-        fi
-
-        #Now check that tsv files match the input fasta files
-        if [ ${#fasta_files[@]} = "$no_output" ] && [ $screener_done_checka = 0 ]; then
-            printf "'%s'\n" "There are now the expected number (${#fasta_files[@]}) of output tsv files, check one complete" >> "${dir}"/G4RNA_wrapper_log.txt
-            screener_done_checka=1
-        fi
-
-    done
-    
-    #Now that all the files have been made check whether they have been modified
-    if [ $screener_done_checka = 1 ]; then
-
-        ls -ltrh "${dir}"/*_screen_output.tsv > "${dir}"/tsv_files_now.txt
-        
-        if cmp -s "${dir}/tsv_files_now.txt" "${dir}/tsv_files_prev.txt"; then
-            #add one to screener_done_checkb
-            ((screener_done_checkb+=1))
-            printf "'%s'\n" "There have been no changes to the output files, consecutive times this condition has been met: $screener_done_checkb times" >> "${dir}"/G4RNA_wrapper_log.txt
-            printf "'%s'\n" "I will wait approx. 20 seconds and check again" >> "${dir}"/G4RNA_wrapper_log.txt
-
-            if [ $screener_done_checkb = 3 ]; then
-                printf "'%s'\n" "There have been no new changes the last $screener_done_checkb times I checked so looks like screen.py is finished" >> "${dir}"/G4RNA_wrapper_log.txt
-                screener_done_checkb=5
-            else       
-                sleep 20
-            fi
-
-        else
-            printf "'%s'\n" "The files are different from previous check, reset count and continue to monitor" >> "${dir}"/G4RNA_wrapper_log.txt
-            screener_done_checkb=0
-            mv "${dir}"/tsv_files_now.txt "${dir}"/tsv_files_prev.txt 
-        fi
-    fi
-
-done
 
 #### Run g4rna_convert_output.py for all tsv files ####
 
 #Now that generation of all the tsv output files is complete move on to converting these file to csv format 
-echo "G4RNA screener has finished, now going to convert the tsv output files to a csv format"
-printf "'%s'\n" "G4RNA screener has finished, now going to convert the tsv output files to a csv format" >> "${dir}"/G4RNA_wrapper_log.txt
+echo "screen.py has finished for all files, now going to convert the tsv output files to a csv format"
+printf "'%s'\n" "screen.py has finished, now going to convert the tsv output files to a csv format" >> "${dir}"/G4RNA_wrapper_log.txt
+
 #Deactivate conda environment
 conda deactivate 
-
 #load regular python
 module load python
 module load ssub
 
-#submit job using ssub 
-if [ "$email" != 0 ] ; then
-    ssub --email python "$csv_converter_path" -files "${output_files[@]}"    
-else 
-    ssub python "$csv_converter_path" -files "${output_files[@]}"
-fi
-
-
-#Wait for conversion to finish then unload python and ssub (necassary if you want to run the script in full again)
-    #g4rna_convert_output.py, creates a file g4rna_convert_done.txt in ${dir} once it's finished with csv conversion
-    #Therefore check for the existance of the file and until it exists don't exit the while loop
-convert_check_a=0
-
-while [ $convert_check_a == 0 ]; do
-    #check if file exists
-    if [ -f "${dir}/g4rna_convert_done.txt" ]; then
-        echo "File \"${dir}/g4rna_convert_done.txt\" exists therefore g4rna_convert_output.py is done" >> "${dir}"/G4RNA_wrapper_log.txt
-        module unload ssub
-        module unload python
-        convert_check_a=1
-    else
-        sleep 5
+#submit job using ssub
+for output in "${output_files[@]}" ; do
+    echo "$output"
+    if [ "$email" != 0 ] ; then
+        ssub --email python "$csv_converter_path" -files "$output"    
+    else 
+        ssub python "$csv_converter_path" -files "$output"
     fi
 done
 
+
+#Wait for conversion to finish then unload python and ssub (necassary if you want to run the script in full again)
+
+convert_py_done=0
+
+while [ $convert_py_done == 0 ]; do
+
+    #Look for the S2507I_convert_end.txt files that are generated at the end of submit_screener.sh
+    #If the number of end files matches the number of input tsv output files then exit while loop. If not then sleep and try check again
+    dir_check=$(ls "$dir"/*S2507I_g4rna_convert_end.txt 2>/dev/null|wc -l)
+    echo "$dir_check"
+
+    if [ ${#output_files[@]} = "$dir_check" ] ; then
+        printf "'%s'\n" "There are now the expected number (${#output_files[@]}) of S2507I_g4rna_convert_end.txt flag files"
+        module unload ssub
+        module unload python
+        convert_py_done=1
+    else
+        echo "There are only ${dir_check} end flag files therefore g4rna_convert_output.py is not done, sleeping for 30s before checking again"
+        sleep 30
+    fi  
+done
+
+echo "g4rna_convert_output.py has finished for all files, now just cleaning up the directory"
+
 #Need to delete the un-necassary tsv output, also need to remove our check files
 rm "${dir}"/*screen_output.tsv
-rm "${dir}"/g4rna_convert_done.txt                              
-rm "${dir}"/tsv_files_now.txt
-rm "${dir}"/tsv_files_prev.txt
+rm "${dir}"/*S2507I_screen_end.txt
+rm "${dir}"/*S2507I_g4rna_convert_end.txt                              
 
 # Closing echo
-echo "All tsv output files converted to csv format"
 echo "G4RNA_wrapper is all finished, see ${dir} for the output csv.files and log file for the run"

@@ -4,7 +4,7 @@ Scripts for automating the running of g4rna_screener to generate csv output file
 ## Using g4rna_wrapper.sh
 The g4rna_wrapper.sh takes input filename.fasta files and for each one: 
 * Runs screen.py using default settings (see https://github.com/scottgroup/g4rna_screener for more detail)
-* Runs g4rna_convert_output.py, to convert screen.py tsv output to a csv format, with appropriate column formmating
+* Runs g4rna_convert_output.py, which converts screen.py tsv output to a csv format, with appropriate column formmating
 * Saves the filename_screen_output.csv in a new directory within the current working directory
 
 ### Command Line Usage:

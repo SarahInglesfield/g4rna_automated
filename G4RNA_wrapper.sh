@@ -180,7 +180,6 @@ module load ssub
 
 #submit job using ssub
 for output in "${output_files[@]}" ; do
-    echo "$output"
     if [ "$email" != 0 ] ; then
         ssub --email python "$csv_converter_path" -files "$output"    
     else 
@@ -198,7 +197,6 @@ while [ $convert_py_done == 0 ]; do
     #Look for the S2507I_convert_end.txt files that are generated at the end of submit_screener.sh
     #If the number of end files matches the number of input tsv output files then exit while loop. If not then sleep and try check again
     dir_check=$(ls "$dir"/*S2507I_g4rna_convert_end.txt 2>/dev/null|wc -l)
-    echo "$dir_check"
 
     if [ ${#output_files[@]} = "$dir_check" ] ; then
         printf "'%s'\n" "There are now the expected number (${#output_files[@]}) of S2507I_g4rna_convert_end.txt flag files"

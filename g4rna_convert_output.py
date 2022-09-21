@@ -4,17 +4,14 @@ import pathlib
 import os
 def main():
   file_list = read_options()
-  #print(file_list)
-  #checks()
+
   for file in file_list.files:
     csv_base_name = convert_output(file)
 
     print(csv_base_name + "_S2507I_g4rna_convert_end.txt")
-    flag_done(file_list.files, csv_base_name)
-    #print(f"All done with {file}")
+    flag_done(csv_base_name)
 
-def flag_done(files, csv_name):
-  dir = os.path.dirname(files[0])
+def flag_done(csv_name):
   done_path = csv_name + "_S2507I_g4rna_convert_end.txt"
   pathlib.Path(done_path).touch()
 
@@ -47,9 +44,9 @@ def convert_output(file):
 
 def read_options(): #command line prompt
     parser = argparse.ArgumentParser(description="""
-    Input:  
-    Function:
-    Output: """)
+    Input: tsv files
+    Function: converts tsv files to csv format and modifies order of columns
+    Output: csv file (same name as the input tsv file) """)
     
     parser.add_argument("-files", help="A list of G4RNA output tsv files", type=str, nargs="+")
     
